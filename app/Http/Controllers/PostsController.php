@@ -2,10 +2,21 @@
 
 namespace App\Http\Controllers;
 use App\Post;
+
+
 use Illuminate\Http\Request;
 
 class PostsController extends Controller
 {
+    /**
+     * Create a new controller instance.
+     *
+     * @return void
+     */
+    public function __construct()
+    {
+        $this->middleware('auth');
+    }
     /**
      * Display a listing of the resource.
      *
@@ -13,10 +24,11 @@ class PostsController extends Controller
      */
     public function index()
     {
-        //
-        $posts = Post::orderBy('id','desc')->get();
-        
-        return view('theme.frontoffice.pages.index',['posts' => $posts]);
+        //$posts = Post::orderBy('id','desc')->get();
+
+        return view('theme.frontoffice.pages.index',[
+            'posts' => Post::orderBy('id','ASC')->get(),
+        ]);
     }
 
     /**
@@ -27,6 +39,9 @@ class PostsController extends Controller
     public function create()
     {
         //
+        return view('theme.frontoffice.pages.create',[
+            'posts' => post::all(),
+        ]);
     }
 
     /**
@@ -37,7 +52,44 @@ class PostsController extends Controller
      */
     public function store(Request $request)
     {
-        //
+        
+
+
+        $data = request()->validate([
+            'title' => 'required|max:255',
+            'image' => 'required|image',
+             'post_content' =>'required'
+
+        ]);
+
+        //get te image from the form
+        $fileNamewithExtension = request('image')->getClientOriginalName();
+        //get the name of the file
+        $fileName = pathinfo($fileNamewithExtension,PATHINFO_FILENAME);
+        //create a new name for the file using the timestamp
+        $extension = request('image')->getClientOriginalExtension();
+        //save the image onto apublic directory into a separately folder
+        $newfileName = $fileName . '_'. time() . '.' . $extension;
+
+        $path =request('image')->storeAs('public/images/posts_images',$newfileName);
+            //dd($newfileName);
+
+
+        
+        $user = auth() -> user();
+        $post =new Post();
+
+        $post ->title = request('title');
+        $post->image_url = $newfileName;
+        $post ->content = request('post_content');
+        $post->user_id =$user->id;
+
+        $post -> save();
+
+        return view('theme.frontoffice.pages.index',[
+            'posts' => Post::all(),
+        ]);
+
     }
 
     /**
@@ -57,9 +109,15 @@ class PostsController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function edit($id)
+    public function edit(Post $post)
     {
         //
+        //
+        $post = Post::find($post->id);
+        //dd($post);
+        return view('theme.frontoffice.pages.edit',[
+            'post' => $post
+        ]);
     }
 
     /**
@@ -69,9 +127,41 @@ class PostsController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function update(Request $request, $id)
+    public function update(Request $request, Post $post)
     {
         //
+        
+        $data = request()->validate([
+            'title' => 'required|max:255',
+            'image' => 'required|image',
+             'post_content' =>'required'
+
+        ]);
+
+        //get te image from the form
+        $fileNamewithExtension = request('image')->getClientOriginalName();
+        //get the name of the file
+        $fileName = pathinfo($fileNamewithExtension,PATHINFO_FILENAME);
+        //create a new name for the file using the timestamp
+        $extension = request('image')->getClientOriginalExtension();
+        //save the image onto apublic directory into a separately folder
+        $newfileName = $fileName . '_'. time() . '.' . $extension;
+
+        $path =request('image')->storeAs('public/images/posts_images',$newfileName);
+            //dd($newfileName);
+
+        $post = Post::findOrFail($post->id);
+
+        $post ->title = request('title');
+        $post->image_url = $newfileName;
+        $post ->content = request('post_content');
+        
+
+        $post -> save();
+
+        return view('theme.frontoffice.pages.index',[
+            'posts' => Post::all(),
+        ]);
     }
 
     /**
@@ -80,8 +170,23 @@ class PostsController extends Controller
      * @param  int  $id
      * @return \Illuminate\Http\Response
      */
-    public function destroy($id)
+    public function destroy(Request $request)
     {
-        //
+
+        //find the post
+        $post = Post::find($request->post_id);
+
+        $oldImage = public_path() . '/storage/images/posts_images/'. $post->image_url;
+
+        if(file_exists($oldImage)){
+            //delete the image
+            unlink($oldImage);
+        }
+
+        //delete the post
+        $post->delete();
+
+        //redirect to posts
+        return redirect('/posts');
     }
 }
